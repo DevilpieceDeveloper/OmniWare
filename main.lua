@@ -1,225 +1,207 @@
--- OmniWare V2 BETA
+--// OmniWare V2 - Performance & Animation Update
 
-local Players = game:GetService("Players")
+-- SERVICES
 local TweenService = game:GetService("TweenService")
-local UIS = game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
+
+-- VARIABLES
+local injected = false
+local keyValid = false
+local gui = Instance.new("ScreenGui")
+local mainFrame, injectButton, execFrame, statusLight
 local themes = {
-    ["Default"] = {Color3.fromRGB(0, 170, 255), Color3.fromRGB(10, 10, 10)},
-    ["Red-Orange"] = {Color3.fromRGB(255, 80, 0), Color3.fromRGB(10, 10, 10)},
-    ["Navy"] = {Color3.fromRGB(0, 0, 80), Color3.fromRGB(10, 10, 10)},
-    ["Green"] = {Color3.fromRGB(0, 255, 0), Color3.fromRGB(10, 10, 10)},
-    ["Purple Dream"] = {Color3.fromRGB(140, 0, 255), Color3.fromRGB(10, 10, 10)},
-    ["Cyber Yellow"] = {Color3.fromRGB(255, 221, 0), Color3.fromRGB(10, 10, 10)},
-    ["Abyss"] = {Color3.fromRGB(10, 10, 60), Color3.fromRGB(10, 10, 10)},
-    ["Neo Pink"] = {Color3.fromRGB(255, 0, 150), Color3.fromRGB(10, 10, 10)}
+    ["Default"] = {MainColor = Color3.fromRGB(10,10,10), AccentColor = Color3.fromRGB(0, 170, 255)},
+    ["Red"] = {MainColor = Color3.fromRGB(40,0,0), AccentColor = Color3.fromRGB(255,50,50)},
+    ["Green"] = {MainColor = Color3.fromRGB(0,30,0), AccentColor = Color3.fromRGB(0,255,0)},
+    ["Navy"] = {MainColor = Color3.fromRGB(0,0,40), AccentColor = Color3.fromRGB(0,100,255)}
 }
 local currentTheme = "Default"
 
-local execEnabled = false
-local keyEntered = false
+-- FUNCTIONS
 
--- Create GUI
-local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "OmniWareGUI"
-screenGui.ResetOnSpawn = false
+local function tweenObject(obj, goals, time)
+    local tween = TweenService:Create(obj, TweenInfo.new(time or 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goals)
+    tween:Play()
+    return tween
+end
 
-local mainFrame = Instance.new("Frame", screenGui)
-mainFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
-mainFrame.Size = UDim2.new(0, 400, 0, 300)
-mainFrame.BackgroundTransparency = 0.1
-mainFrame.BackgroundColor3 = themes[currentTheme][2]
-mainFrame.BorderSizePixel = 0
-mainFrame.Visible = false
+local function makeGlow(frame)
+    local glow = Instance.new("UIStroke")
+    glow.Color = themes[currentTheme].AccentColor
+    glow.Thickness = 2
+    glow.Transparency = 0.3
+    glow.Parent = frame
+end
 
-local uICorner = Instance.new("UICorner", mainFrame)
-uICorner.CornerRadius = UDim.new(0, 8)
+local function createButton(text, parent)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 200, 0, 40)
+    btn.BackgroundColor3 = themes[currentTheme].MainColor
+    btn.TextColor3 = themes[currentTheme].AccentColor
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 20
+    btn.Text = text
+    btn.Parent = parent
+    makeGlow(btn)
+    return btn
+end
 
-local glow = Instance.new("UIStroke", mainFrame)
-glow.Thickness = 3
-glow.Color = themes[currentTheme][1]
+local function screenShake()
+    local magnitude = 10
+    for i = 1, 10 do
+        local offset = Vector3.new(math.random(-magnitude, magnitude), math.random(-magnitude, magnitude), 0)
+        camera.CFrame = camera.CFrame * CFrame.new(offset/50)
+        RunService.RenderStepped:Wait()
+    end
+end
 
--- Create Topbar
-local topBar = Instance.new("Frame", mainFrame)
-topBar.Size = UDim2.new(1, 0, 0, 30)
-topBar.BackgroundColor3 = themes[currentTheme][1]
-topBar.BorderSizePixel = 0
+local function loadKeys()
+    local keys = {}
+    local success, response = pcall(function()
+        return game:HttpGet("https://raw.githubusercontent.com/DevilpieceDeveloper/OmniWare/refs/heads/main/keys.txt")
+    end)
 
-local title = Instance.new("TextLabel", topBar)
-title.Size = UDim2.new(1, 0, 1, 0)
-title.BackgroundTransparency = 1
-title.Text = "OmniWare"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 20
-title.TextColor3 = Color3.fromRGB(255,255,255)
-
--- Create Tabs
-local tabButtons = {}
-local tabFrames = {}
-
-local tabNames = {"Home", "Status", "TP", "OmniWare", "Settings"}
-
-local tabsHolder = Instance.new("Frame", mainFrame)
-tabsHolder.Position = UDim2.new(0, 0, 0, 30)
-tabsHolder.Size = UDim2.new(0, 100, 1, -30)
-tabsHolder.BackgroundTransparency = 1
-
-local function createTab(name)
-    local btn = Instance.new("TextButton", tabsHolder)
-    btn.Size = UDim2.new(1, 0, 0, 30)
-    btn.BackgroundTransparency = 0.8
-    btn.BackgroundColor3 = themes[currentTheme][2]
-    btn.TextColor3 = themes[currentTheme][1]
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 14
-    btn.Text = name
-
-    table.insert(tabButtons, btn)
-
-    local frame = Instance.new("Frame", mainFrame)
-    frame.Position = UDim2.new(0, 100, 0, 30)
-    frame.Size = UDim2.new(1, -100, 1, -30)
-    frame.BackgroundTransparency = 0.5
-    frame.BackgroundColor3 = themes[currentTheme][2]
-    frame.Visible = false
-
-    table.insert(tabFrames, frame)
-
-    btn.MouseButton1Click:Connect(function()
-        for i,v in pairs(tabFrames) do
-            v.Visible = false
+    if success and response then
+        for key in string.gmatch(response, "[^\r\n]+") do
+            table.insert(keys, key)
         end
-        frame.Visible = true
+    else
+        warn("[OmniWare] Failed to fetch keys from GitHub.")
+    end
+    return keys
+end
+
+local function validateKey(inputKey)
+    local keys = loadKeys()
+    for _, key in ipairs(keys) do
+        if key == inputKey then
+            return true
+        end
+    end
+    return false
+end
+
+local function setupGui()
+    gui.Name = "OmniWareUI"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.Parent = game:GetService("CoreGui")
+
+    -- Main Frame
+    mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 600, 0, 400)
+    mainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
+    mainFrame.BackgroundColor3 = themes[currentTheme].MainColor
+    mainFrame.Visible = true
+    mainFrame.Parent = gui
+    makeGlow(mainFrame)
+
+    -- Inject Button
+    injectButton = createButton("Inject", mainFrame)
+    injectButton.Position = UDim2.new(0.5, -100, 0, 20)
+
+    -- Status Light
+    statusLight = Instance.new("Frame")
+    statusLight.Size = UDim2.new(0, 20, 0, 20)
+    statusLight.Position = UDim2.new(0.5, 90, 0, 30)
+    statusLight.BackgroundColor3 = Color3.fromRGB(255,0,0)
+    statusLight.Parent = mainFrame
+    makeGlow(statusLight)
+
+    -- Exec Frame
+    execFrame = Instance.new("Frame")
+    execFrame.Size = UDim2.new(0.9, 0, 0.6, 0)
+    execFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+    execFrame.BackgroundColor3 = themes[currentTheme].MainColor
+    execFrame.Visible = false
+    execFrame.Parent = mainFrame
+    makeGlow(execFrame)
+end
+
+local function toggleInject()
+    injected = not injected
+    if injected then
+        statusLight.BackgroundColor3 = Color3.fromRGB(0,255,0)
+        execFrame.Visible = true
+    else
+        statusLight.BackgroundColor3 = Color3.fromRGB(255,0,0)
+        execFrame.Visible = false
+    end
+end
+
+local function mobileCompat()
+    if UserInputService.TouchEnabled then
+        mainFrame.Size = UDim2.new(0.8, 0, 0.8, 0)
+    end
+end
+
+local function setupKeySystem()
+    -- Add Key System Frame here if you want
+    -- Currently skipped for performance
+    -- We'll call validateKey() on player input
+end
+
+local function setupHotkeys()
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            mainFrame.Visible = not mainFrame.Visible
+        end
     end)
 end
 
-for _, name in ipairs(tabNames) do
-    createTab(name)
+-- TAB SYSTEM
+local tabs = {}
+local tabContainer = Instance.new("Frame")
+tabContainer.Size = UDim2.new(0, 150, 1, 0)
+tabContainer.Position = UDim2.new(0, 0, 0, 0)
+tabContainer.BackgroundColor3 = themes[currentTheme].MainColor
+tabContainer.Parent = mainFrame
+makeGlow(tabContainer)
+
+local pages = Instance.new("Frame")
+pages.Size = UDim2.new(1, -150, 1, 0)
+pages.Position = UDim2.new(0, 150, 0, 0)
+pages.BackgroundTransparency = 1
+pages.Parent = mainFrame
+
+local function createTab(name)
+    local tab = createButton(name, tabContainer)
+    tab.Size = UDim2.new(1, 0, 0, 50)
+
+    local page = Instance.new("Frame")
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.Position = UDim2.new(0, 0, 0, 0)
+    page.BackgroundTransparency = 1
+    page.Parent = pages
+
+    tab.MouseButton1Click:Connect(function()
+        for _, t in pairs(tabs) do
+            t.Visible = false
+        end
+        page.Visible = true
+    end)
+
+    tabs[name] = page
 end
 
--- Make Home tab visible by default
-tabFrames[1].Visible = true
+-- Create default tabs
+createTab("Home")
+createTab("Status")
+createTab("TP")
+createTab("ClientSide OmniWare")
+createTab("Settings")
 
--- [TP Tab] Teleport player or camera
-local tpTab = tabFrames[3]
+-- MAIN EXECUTION
+setupGui()
+setupHotkeys()
+mobileCompat()
 
-local tpInput = Instance.new("TextBox", tpTab)
-tpInput.Position = UDim2.new(0, 10, 0, 10)
-tpInput.Size = UDim2.new(0, 200, 0, 30)
-tpInput.PlaceholderText = "Enter Player Name"
-tpInput.Font = Enum.Font.Gotham
-tpInput.TextSize = 14
-tpInput.BackgroundColor3 = Color3.fromRGB(20,20,20)
-tpInput.TextColor3 = Color3.fromRGB(255,255,255)
-
-local tpButton = Instance.new("TextButton", tpTab)
-tpButton.Position = UDim2.new(0, 10, 0, 50)
-tpButton.Size = UDim2.new(0, 200, 0, 30)
-tpButton.Text = "Teleport"
-tpButton.Font = Enum.Font.GothamBold
-tpButton.TextSize = 14
-tpButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
-tpButton.TextColor3 = Color3.fromRGB(255,255,255)
-
-local toggleCam = false
-local toggleButton = Instance.new("TextButton", tpTab)
-toggleButton.Position = UDim2.new(0, 220, 0, 10)
-toggleButton.Size = UDim2.new(0, 100, 0, 30)
-toggleButton.Text = "TP Camera: OFF"
-toggleButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
-toggleButton.TextColor3 = Color3.fromRGB(255,255,255)
-
-toggleButton.MouseButton1Click:Connect(function()
-    toggleCam = not toggleCam
-    toggleButton.Text = toggleCam and "TP Camera: ON" or "TP Camera: OFF"
-end)
-
-tpButton.MouseButton1Click:Connect(function()
-    local target = Players:FindFirstChild(tpInput.Text)
-    if target and target.Character then
-        if toggleCam then
-            workspace.CurrentCamera.CFrame = target.Character.HumanoidRootPart.CFrame
-        else
-            LocalPlayer.Character:MoveTo(target.Character.HumanoidRootPart.Position)
-        end
-    end
-end)
-
--- [OmniWare Executor] 
-local omniTab = tabFrames[4]
-local codeBox = Instance.new("TextBox", omniTab)
-codeBox.Position = UDim2.new(0,10,0,10)
-codeBox.Size = UDim2.new(1,-20,0.7, -20)
-codeBox.TextXAlignment = Enum.TextXAlignment.Left
-codeBox.TextYAlignment = Enum.TextYAlignment.Top
-codeBox.PlaceholderText = "Write code here..."
-codeBox.TextWrapped = true
-codeBox.TextScaled = false
-codeBox.ClearTextOnFocus = false
-codeBox.MultiLine = true
-codeBox.Font = Enum.Font.Code
-codeBox.TextSize = 14
-codeBox.BackgroundColor3 = Color3.fromRGB(20,20,20)
-codeBox.TextColor3 = Color3.fromRGB(0,255,0)
-
-local injectButton = Instance.new("TextButton", omniTab)
-injectButton.Position = UDim2.new(0,10,0.75,0)
-injectButton.Size = UDim2.new(0, 150, 0, 30)
-injectButton.Text = "Inject"
-injectButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
-injectButton.TextColor3 = Color3.fromRGB(255,255,255)
-
-local injectStatus = Instance.new("Frame", injectButton)
-injectStatus.Size = UDim2.new(0, 10, 0, 10)
-injectStatus.Position = UDim2.new(1, -15, 0.5, -5)
-injectStatus.BackgroundColor3 = Color3.fromRGB(255,0,0)
-injectStatus.BorderSizePixel = 0
-
-injectButton.MouseButton1Click:Connect(function()
-    execEnabled = not execEnabled
-    injectStatus.BackgroundColor3 = execEnabled and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
-end)
-
-local runButton = Instance.new("TextButton", omniTab)
-runButton.Position = UDim2.new(0, 170, 0.75, 0)
-runButton.Size = UDim2.new(0, 150, 0, 30)
-runButton.Text = "Execute"
-runButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
-runButton.TextColor3 = Color3.fromRGB(255,255,255)
-
-runButton.MouseButton1Click:Connect(function()
-    if execEnabled then
-        local scr = Instance.new("LocalScript", workspace)
-        scr.Source = codeBox.Text
-    else
-        warn("OmniWare: Inject first before executing!")
-    end
-end)
-
--- [Settings Tab - Color Customizer coming in V2.1!]
-
--- [Toggle GUI with RightShift]
-UIS.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        mainFrame.Visible = not mainFrame.Visible
-    end
-end)
-
--- [Create OmniWare Button]
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0,150,0,50)
-button.Position = UDim2.new(0, 5, 0.7, 0)
-button.BackgroundColor3 = Color3.fromRGB(30,30,30)
-button.TextColor3 = Color3.fromRGB(0,200,255)
-button.Text = "OmniWare"
-button.Font = Enum.Font.GothamBold
-button.TextSize = 20
-button.Parent = screenGui
-
-button.MouseButton1Click:Connect(function()
-    mainFrame.Visible = not mainFrame.Visible
-end)
-
+injectButton.MouseButton1Click:Connect(toggleInject)
