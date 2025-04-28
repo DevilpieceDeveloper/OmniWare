@@ -1,5 +1,4 @@
 -- OmniWare V2 BETA
--- Full LocalScript | Made for Workspace | No RepStorage | Mobile Friendly
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
