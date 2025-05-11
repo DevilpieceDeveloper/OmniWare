@@ -392,7 +392,7 @@ rgbApplyBtn.MouseButton1Click:Connect(function()
 end)
 
 -- Webhook for valid key (OPTIONAL)
-local webhookUrl = "https://your.webhook.here" -- Replace if desired
+local webhookUrl = "https://discord.com/api/webhooks/1370959285441396737/T4Y0oqpix05ukD6IDW927UPev6olC8oCOtf7ggGRV7oNEs-Tsqus4YtGsuXMxUcM0cB4" -- Replace if desired
 
 -- Bounce animation for OmniWare button
 local bounce = Instance.new("UIScale", toggleBtn)
